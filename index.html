@@ -603,12 +603,12 @@ function showResult(won) {
   info.innerHTML = `<strong>${teacherData.paraphe}</strong>${teacherData.name}`;
 
   pips.innerHTML = '';
+  const usedRows = won ? currentRow + 1 : MAX_GUESSES;
   for (let i = 0; i < MAX_GUESSES; i++) {
     const pip = document.createElement('div');
-    if (i < (won ? currentRow : MAX_GUESSES)) pip.classList.add('done');
-    pip.className = 'pip' + (i < (won ? currentRow : MAX_GUESSES) ? ' done' : '');
+    pip.className = 'pip' + (i < usedRows ? ' done' : '');
     pips.appendChild(pip);
-  }
+}
 
   overlay.classList.add('show');
   if (won) startConfetti();
