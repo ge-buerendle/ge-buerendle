@@ -463,14 +463,16 @@ function submitGuess() {
     shakeRow(currentRow);
     return;
   }
-  const validParaphen = LEHRER.map(l => l.paraphe.toUpperCase());
-  if (!validParaphen.includes(guess)) {
-    showMessage('Paraphe nicht bekannt!');
-    shakeRow(currentRow);
-    return;
-}
 
   const guess = board[currentRow].map(t => t.textContent).join('');
+
+  const validParaphen = LEHRER.map(l => l.paraphe.toUpperCase());
+  if (!validParaphen.includes(guess)) {
+    showMessage('Keine gültige Paraphe!');
+    shakeRow(currentRow);
+    return;
+  }
+
   const result = evaluate(guess, target);
   guessHistory.push(guess);
 
