@@ -24,12 +24,11 @@
     background: var(--bg);
     color: var(--text);
     font-family: 'Space Mono', monospace;
-    height: 100dvh;
-    overflow: hidden;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 16px 12px 16px;
+    padding: 16px 12px 80px;
     background-image: radial-gradient(ellipse at 20% 10%, #1e1b4b22 0%, transparent 60%),
                       radial-gradient(ellipse at 80% 80%, #16213022 0%, transparent 60%);
     touch-action: manipulation;
@@ -193,26 +192,44 @@
     min-height: 28px;
   }
 
-  /* Result panel */
-  #result-panel {
+  /* Overlay */
+  #overlay {
     display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #overlay.show { display: flex; }
+
+  #result-panel {
+    display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 28px;
+    border-radius: 16px;
+    padding: 28px 32px;
     text-align: center;
-    max-width: 320px;
-    width: 100%;
+    max-width: 300px;
+    width: 88vw;
+    position: relative;
+    z-index: 101;
+    animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
   }
 
-  #result-panel.show { display: flex; }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+  }
 
   #result-label {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.8rem;
+    font-size: 2.2rem;
     letter-spacing: 0.12em;
   }
 
@@ -238,8 +255,8 @@
     font-size: 0.78rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    padding: 10px 24px;
-    border-radius: 6px;
+    padding: 12px 28px;
+    border-radius: 8px;
     cursor: pointer;
     margin-top: 4px;
     transition: opacity 0.15s, transform 0.1s;
@@ -259,6 +276,13 @@
     background: var(--border);
   }
   .pip.done { background: var(--correct); }
+
+  #confetti-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 102;
+  }
 </style>
 </head>
 <body>
@@ -272,11 +296,14 @@
 <div id="board"></div>
 <div id="keyboard"></div>
 
-<div id="result-panel">
-  <div id="result-label"></div>
-  <div id="result-teacher"></div>
-  <div class="pip-row" id="pips"></div>
-  <button id="play-again">Nochmal spielen</button>
+<canvas id="confetti-canvas"></canvas>
+<div id="overlay">
+  <div id="result-panel">
+    <div id="result-label"></div>
+    <div id="result-teacher"></div>
+    <div class="pip-row" id="pips"></div>
+    <button id="play-again">Nochmal spielen</button>
+  </div>
 </div>
 
 <script>
@@ -565,30 +592,76 @@ function shakeRow(r) {
 }
 
 function showResult(won) {
-  const panel = document.getElementById('result-panel');
+  const overlay = document.getElementById('overlay');
   const label = document.getElementById('result-label');
   const info  = document.getElementById('result-teacher');
   const pips  = document.getElementById('pips');
 
-  label.textContent = won ? '🎉 Richtig!' : '❌ Verloren';
+  label.textContent = won ? '🎉 Richtig!' : '😬 Verloren';
   label.style.color = won ? 'var(--correct)' : '#f87171';
 
-  let html = `<strong>${teacherData.paraphe}</strong>${teacherData.name}`;
-  info.innerHTML = html;
+  info.innerHTML = `<strong>${teacherData.paraphe}</strong>${teacherData.name}`;
 
   pips.innerHTML = '';
   for (let i = 0; i < MAX_GUESSES; i++) {
     const pip = document.createElement('div');
-    pip.className = 'pip' + (i < currentRow || (won && i === currentRow - 1 + (won ? 1 : 0)) ? ' done' : '');
-    // simple: mark used rows
     if (i < (won ? currentRow : MAX_GUESSES)) pip.classList.add('done');
+    pip.className = 'pip' + (i < (won ? currentRow : MAX_GUESSES) ? ' done' : '');
     pips.appendChild(pip);
   }
 
-  panel.classList.add('show');
+  overlay.classList.add('show');
+  if (won) startConfetti();
 }
 
-document.getElementById('play-again').addEventListener('click', init);
+function startConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const colors = ['#4ade80','#facc15','#818cf8','#f87171','#38bdf8','#fb923c'];
+  const pieces = Array.from({length: 120}, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * -canvas.height,
+    w: Math.random() * 10 + 5,
+    h: Math.random() * 6 + 3,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    rot: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.15,
+    vx: (Math.random() - 0.5) * 3,
+    vy: Math.random() * 4 + 2,
+  }));
+
+  let frame;
+  let elapsed = 0;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rot += p.rotSpeed;
+      if (p.y > canvas.height) { p.y = -20; p.x = Math.random() * canvas.width; }
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    });
+    elapsed++;
+    if (elapsed < 180) frame = requestAnimationFrame(draw);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  draw();
+}
+
+document.getElementById('play-again').addEventListener('click', () => {
+  document.getElementById('overlay').classList.remove('show');
+  const canvas = document.getElementById('confetti-canvas');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  init();
+});
 
 document.addEventListener('keydown', e => {
   const k = e.key.toUpperCase();
