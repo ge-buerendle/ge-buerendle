@@ -59,6 +59,121 @@
     margin-top: 6px;
   }
 
+  /* Kleiner Moduswechsel-Button oben rechts */
+  #mode-pill {
+    position: fixed;
+    top: max(16px, env(safe-area-inset-top, 16px));
+    right: 16px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 7px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #mode-pill:active { transform: scale(0.96); }
+  #mode-pill .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* Start-Overlay (Modusauswahl) */
+  #start-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(4px);
+    z-index: 110;
+    align-items: center;
+    justify-content: center;
+  }
+  #start-overlay.show { display: flex; }
+
+  #start-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 28px;
+    text-align: center;
+    max-width: 320px;
+    width: 88vw;
+    animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  }
+
+  #start-panel h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.1em;
+    color: var(--text);
+  }
+
+  #start-panel p.hint {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: -8px;
+  }
+
+  .start-btn {
+    width: 100%;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 14px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: opacity 0.15s, transform 0.1s;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .start-btn:active { transform: scale(0.97); }
+
+  .start-btn .label {
+    font-size: 0.85rem;
+  }
+
+  .start-btn .sub {
+    font-size: 0.6rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    opacity: 0.75;
+  }
+
+  #start-daily {
+    background: var(--accent);
+    color: #0f0f12;
+    border-color: var(--accent);
+  }
+
+  #start-endless {
+    background: transparent;
+    color: var(--text);
+  }
+
   /* Board */
   #board {
     display: flex;
@@ -292,6 +407,26 @@
 </head>
 <body>
 
+<div id="mode-pill">
+  <span class="dot"></span>
+  <span id="mode-pill-label">Täglich</span>
+</div>
+
+<div id="start-overlay">
+  <div id="start-panel">
+    <h2>GE-Bürendle</h2>
+    <p class="hint">Wie möchtest du spielen?</p>
+    <button class="start-btn" id="start-daily">
+      <span class="label">📅 Tagesrätsel</span>
+      <span class="sub">Eine Paraphe pro Tag, für alle gleich</span>
+    </button>
+    <button class="start-btn" id="start-endless">
+      <span class="label">♾️ Unendlicher Modus</span>
+      <span class="sub">Beliebig oft neu starten</span>
+    </button>
+  </div>
+</div>
+
 <header>
   <h1><span style="color:#C0392B">G</span><span style="color:#2471A3">E</span><span style="color:#F0F0F5">-</span><span style="color:#1A7A4A">B</span><span style="color:#E8B84B">ü</span><span style="color:#C0392B">r</span><span style="color:#2471A3">e</span><span style="color:#1A7A4A">n</span><span style="color:#E8B84B">d</span><span style="color:#C0392B">l</span><span style="color:#2471A3">e</span></h1>
   <p class="subtitle">Errate die Paraphe · 4 Buchstaben · 6 Versuche</p>
@@ -400,27 +535,159 @@ const LEHRER = [
 
 const MAX_GUESSES = 6;
 const WORD_LEN = 4;
+const STORAGE_KEY = 'gebuerendle_progress';
 
-let target, teacherData, currentRow, currentCol, board, gameOver, keyStates, guessHistory;
+let target, teacherData, currentRow, currentCol, board, gameOver, keyStates, guessHistory, mode;
+
+// ---- Speicher für den Fortschritt (welche Paraphen schon "dran" waren) ----
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { usedDaily: [], lastDailyDate: null, lastDailyWon: null, lastDailyTeacher: null, mode: 'daily' };
+    return JSON.parse(raw);
+  } catch (e) {
+    return { usedDaily: [], lastDailyDate: null, lastDailyWon: null, lastDailyTeacher: null, mode: 'daily' };
+  }
+}
+
+function saveProgress(progress) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  } catch (e) { /* ignore */ }
+}
+
+// ---- Heutiges Datum nach deutscher Zeit (Europe/Berlin) als YYYY-MM-DD ----
+function getBerlinDateString() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('de-DE', {
+    timeZone: 'Europe/Berlin',
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(now);
+  const y = parts.find(p => p.type === 'year').value;
+  const m = parts.find(p => p.type === 'month').value;
+  const d = parts.find(p => p.type === 'day').value;
+  return `${y}-${m}-${d}`;
+}
+
+// einfacher deterministischer Hash aus einem String (für die Tagesauswahl)
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+// Wählt die Paraphe des Tages, ohne Wiederholung bis alle einmal dran waren
+function pickDailyTeacher(progress) {
+  const dateStr = getBerlinDateString();
+
+  // Falls heute schon eine Auswahl getroffen wurde, diese wiederverwenden
+  if (progress.lastDailyDate === dateStr && progress.lastDailyTeacher) {
+    const found = LEHRER.find(l => l.paraphe === progress.lastDailyTeacher);
+    if (found) return { teacher: found, dateStr, isNewDay: false };
+  }
+
+  // Neuer Tag: Pool der noch nicht verwendeten Paraphen bestimmen
+  let usedDaily = progress.usedDaily || [];
+  let pool = LEHRER.filter(l => !usedDaily.includes(l.paraphe));
+  if (pool.length === 0) {
+    // Alle waren schon dran -> Zyklus neu starten
+    usedDaily = [];
+    pool = LEHRER.slice();
+  }
+
+  // Deterministische, aber für den Tag "zufällige" Auswahl aus dem Pool
+  const idx = hashString(dateStr) % pool.length;
+  const chosen = pool[idx];
+
+  usedDaily.push(chosen.paraphe);
+  progress.usedDaily = usedDaily;
+  progress.lastDailyDate = dateStr;
+  progress.lastDailyTeacher = chosen.paraphe;
+  progress.lastDailyWon = null;
+  saveProgress(progress);
+
+  return { teacher: chosen, dateStr, isNewDay: true };
+}
 
 function pickRandom() {
   return LEHRER[Math.floor(Math.random() * LEHRER.length)];
 }
 
+function setMode(newMode) {
+  mode = newMode;
+  const progress = loadProgress();
+  progress.mode = newMode;
+  saveProgress(progress);
+
+  updateModePill();
+  init();
+}
+
+function updateModePill() {
+  document.getElementById('mode-pill-label').textContent = mode === 'daily' ? 'Täglich' : 'Unendlich';
+}
+
 function init() {
-  teacherData = pickRandom();
-  target = teacherData.paraphe.toUpperCase();
+  const progress = loadProgress();
+
+  if (mode === 'daily') {
+    const dateStr = getBerlinDateString();
+    const { teacher } = pickDailyTeacher(progress);
+    teacherData = teacher;
+    target = teacherData.paraphe.toUpperCase();
+
+    // Bereits heute gespielt und beendet?
+    const freshProgress = loadProgress();
+    if (freshProgress.lastDailyDate === dateStr && freshProgress.lastDailyWon !== null) {
+      gameOver = true;
+      currentRow = freshProgress.lastDailyRow || 0;
+      currentCol = 0;
+      keyStates = {};
+      guessHistory = freshProgress.lastDailyGuesses || [];
+      buildBoard();
+      buildKeyboard();
+      replayGuesses();
+      setTimeout(() => showResult(freshProgress.lastDailyWon, true), 300);
+      return;
+    }
+  } else {
+    teacherData = pickRandom();
+    target = teacherData.paraphe.toUpperCase();
+  }
+
   currentRow = 0;
   currentCol = 0;
   gameOver = false;
   keyStates = {};
   guessHistory = [];
 
-  document.getElementById('result-panel').classList.remove('show');
+  document.getElementById('overlay').classList.remove('show');
   document.getElementById('message').textContent = '';
 
   buildBoard();
   buildKeyboard();
+}
+
+// Versuche aus dem Speicher erneut auf dem Brett anzeigen (für bereits gelöstes Tagesrätsel)
+function replayGuesses() {
+  guessHistory.forEach((guess, r) => {
+    const result = evaluate(guess, target);
+    guess.split('').forEach((ch, c) => {
+      board[r][c].textContent = ch;
+      board[r][c].classList.add(result[c]);
+    });
+    result.forEach((state, i) => {
+      const ch = guess[i];
+      const cur = keyStates[ch];
+      if (cur !== 'correct') {
+        if (state === 'correct' || cur !== 'present') keyStates[ch] = state;
+      }
+    });
+  });
+  updateKeyboard();
 }
 
 function buildBoard() {
@@ -534,16 +801,26 @@ function submitGuess() {
 
     if (guess === target) {
       gameOver = true;
+      if (mode === 'daily') saveDailyResult(true);
       setTimeout(() => showResult(true), 400);
     } else {
       currentRow++;
       currentCol = 0;
       if (currentRow >= MAX_GUESSES) {
         gameOver = true;
+        if (mode === 'daily') saveDailyResult(false);
         setTimeout(() => showResult(false), 400);
       }
     }
   }, WORD_LEN * 120 + 200);
+}
+
+function saveDailyResult(won) {
+  const progress = loadProgress();
+  progress.lastDailyWon = won;
+  progress.lastDailyRow = won ? currentRow + 1 : MAX_GUESSES;
+  progress.lastDailyGuesses = guessHistory.slice();
+  saveProgress(progress);
 }
 
 function evaluate(guess, target) {
@@ -595,11 +872,12 @@ function shakeRow(r) {
   });
 }
 
-function showResult(won) {
+function showResult(won, isReplay = false) {
   const overlay = document.getElementById('overlay');
   const label = document.getElementById('result-label');
   const info  = document.getElementById('result-teacher');
   const pips  = document.getElementById('pips');
+  const playAgainBtn = document.getElementById('play-again');
 
   label.textContent = won ? '🎉 Richtig!' : '😬 Verloren';
   label.style.color = won ? 'var(--correct)' : '#f87171';
@@ -612,10 +890,18 @@ function showResult(won) {
     const pip = document.createElement('div');
     pip.className = 'pip' + (i < usedRows ? ' done' : '');
     pips.appendChild(pip);
-}
+  }
+
+  if (mode === 'daily') {
+    playAgainBtn.textContent = 'Zurück zum Spiel';
+    playAgainBtn.dataset.dailyDismiss = 'true';
+  } else {
+    playAgainBtn.textContent = 'Nochmal spielen';
+    playAgainBtn.dataset.dailyDismiss = 'false';
+  }
 
   overlay.classList.add('show');
-  if (won) startConfetti();
+  if (won && !isReplay) startConfetti();
 }
 
 function startConfetti() {
@@ -664,7 +950,25 @@ document.getElementById('play-again').addEventListener('click', () => {
   document.getElementById('overlay').classList.remove('show');
   const canvas = document.getElementById('confetti-canvas');
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  if (mode === 'daily') {
+    // Tagesrätsel ist bereits gelöst/verloren -> nur Overlay schließen, kein neues Spiel
+    return;
+  }
   init();
+});
+
+document.getElementById('start-daily').addEventListener('click', () => {
+  document.getElementById('start-overlay').classList.remove('show');
+  setMode('daily');
+});
+
+document.getElementById('start-endless').addEventListener('click', () => {
+  document.getElementById('start-overlay').classList.remove('show');
+  setMode('endless');
+});
+
+document.getElementById('mode-pill').addEventListener('click', () => {
+  document.getElementById('start-overlay').classList.add('show');
 });
 
 document.addEventListener('keydown', e => {
@@ -674,7 +978,17 @@ document.addEventListener('keydown', e => {
   else if (/^[A-ZÄÖÜ]$/.test(k)) handleKey(k);
 });
 
-init();
+// Beim ersten Besuch: Modusauswahl zeigen. Danach: zuletzt gewählten Modus übernehmen.
+const startProgress = loadProgress();
+if (startProgress.mode) {
+  mode = startProgress.mode;
+  updateModePill();
+  init();
+} else {
+  mode = 'daily';
+  updateModePill();
+  document.getElementById('start-overlay').classList.add('show');
+}
 </script>
 </body>
 </html>
