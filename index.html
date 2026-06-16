@@ -705,6 +705,17 @@ function init() {
 
   buildBoard();
   buildKeyboard();
+
+  // Falls im Tagesmodus bereits unfertige Versuche gespeichert sind, diese wiederherstellen
+  if (mode === 'daily') {
+    const freshProgress2 = loadProgress();
+    const savedGuesses = freshProgress2.lastDailyDate === getBerlinDateString() ? (freshProgress2.lastDailyGuesses || []) : [];
+    if (savedGuesses.length > 0) {
+      guessHistory = savedGuesses.slice();
+      currentRow = guessHistory.length;
+      replayGuesses();
+    }
+  }
 }
 
 // Versuche aus dem Speicher erneut auf dem Brett anzeigen (für bereits gelöstes Tagesrätsel)
@@ -813,6 +824,8 @@ function submitGuess() {
   const result = evaluate(guess, target);
   guessHistory.push(guess);
 
+  if (mode === 'daily') saveDailyProgress();
+
   // animate tiles with delay
   result.forEach((state, i) => {
     setTimeout(() => {
@@ -849,6 +862,12 @@ function submitGuess() {
       }
     }
   }, WORD_LEN * 120 + 200);
+}
+
+function saveDailyProgress() {
+  const progress = loadProgress();
+  progress.lastDailyGuesses = guessHistory.slice();
+  saveProgress(progress);
 }
 
 function saveDailyResult(won) {
@@ -922,7 +941,7 @@ function showResult(won, isReplay = false) {
   info.innerHTML = `<strong>${teacherData.paraphe}</strong>${teacherData.name}`;
 
   pips.innerHTML = '';
-  const usedRows = won ? currentRow + 1 : MAX_GUESSES;
+  const usedRows = won ? guessHistory.length : MAX_GUESSES;
   for (let i = 0; i < MAX_GUESSES; i++) {
     const pip = document.createElement('div');
     pip.className = 'pip' + (i < usedRows ? ' done' : '');
@@ -947,7 +966,7 @@ function showResult(won, isReplay = false) {
 function buildShareText(won) {
   const dateStr = getBerlinDateString();
   const modeLabel = mode === 'daily' ? 'Tagesrätsel' : 'Unendlicher Modus';
-  const attempts = won ? (currentRow + 1) : 'X';
+  const attempts = won ? guessHistory.length : 'X';
   const emojiMap = { correct: '🟩', present: '🟨', absent: '⬛' };
 
   let lines = [`GE-Bürendle – ${modeLabel}${mode === 'daily' ? ' (' + dateStr + ')' : ''}`];
@@ -958,6 +977,9 @@ function buildShareText(won) {
     const result = evaluate(guess, target);
     lines.push(result.map(state => emojiMap[state]).join(''));
   });
+
+  lines.push('');
+  lines.push('https://ge-buerendle.github.io/ge-buerendle/');
 
   return lines.join('\n');
 }
