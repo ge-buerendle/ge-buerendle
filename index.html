@@ -61,11 +61,7 @@
 
   /* Kleiner Moduswechsel-Button oben rechts */
   #mode-pill {
-    position: fixed;
-    top: max(16px, env(safe-area-inset-top, 16px));
-    right: 16px;
-    z-index: 50;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
     background: var(--surface);
@@ -81,6 +77,7 @@
     cursor: pointer;
     transition: border-color 0.2s, color 0.2s;
     -webkit-tap-highlight-color: transparent;
+    margin-bottom: 14px;
   }
 
   #mode-pill:active { transform: scale(0.96); }
@@ -366,6 +363,25 @@
     margin-bottom: 2px;
   }
 
+  #share-result {
+    background: var(--correct);
+    color: #0f0f12;
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 12px 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  #share-result:hover { opacity: 0.85; transform: scale(1.02); }
+  #share-result:active { transform: scale(0.97); }
+
   #play-again {
     background: var(--accent);
     color: #0f0f12;
@@ -383,6 +399,24 @@
   }
 
   #play-again:hover { opacity: 0.85; transform: scale(1.03); }
+
+  #switch-to-endless {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s, border-color 0.2s;
+  }
+
+  #switch-to-endless:hover { opacity: 0.8; border-color: var(--accent); }
+  #switch-to-endless:active { transform: scale(0.97); }
 
   .pip-row {
     display: flex;
@@ -407,11 +441,6 @@
 </head>
 <body>
 
-<div id="mode-pill">
-  <span class="dot"></span>
-  <span id="mode-pill-label">Täglich</span>
-</div>
-
 <div id="start-overlay">
   <div id="start-panel">
     <h2>GE-Bürendle</h2>
@@ -428,6 +457,10 @@
 </div>
 
 <header>
+  <div id="mode-pill">
+    <span class="dot"></span>
+    <span id="mode-pill-label">📅 Täglich</span>
+  </div>
   <h1><span style="color:#C0392B">G</span><span style="color:#2471A3">E</span><span style="color:#F0F0F5">-</span><span style="color:#1A7A4A">B</span><span style="color:#E8B84B">ü</span><span style="color:#C0392B">r</span><span style="color:#2471A3">e</span><span style="color:#1A7A4A">n</span><span style="color:#E8B84B">d</span><span style="color:#C0392B">l</span><span style="color:#2471A3">e</span></h1>
   <p class="subtitle">Errate die Paraphe · 4 Buchstaben · 6 Versuche</p>
 </header>
@@ -442,7 +475,9 @@
     <div id="result-label"></div>
     <div id="result-teacher"></div>
     <div class="pip-row" id="pips"></div>
+    <button id="share-result">📋 Ergebnis teilen</button>
     <button id="play-again">Nochmal spielen</button>
+    <button id="switch-to-endless" style="display:none;">Unendlichen Modus spielen</button>
   </div>
 </div>
 
@@ -537,7 +572,7 @@ const MAX_GUESSES = 6;
 const WORD_LEN = 4;
 const STORAGE_KEY = 'gebuerendle_progress';
 
-let target, teacherData, currentRow, currentCol, board, gameOver, keyStates, guessHistory, mode;
+let target, teacherData, currentRow, currentCol, board, gameOver, keyStates, guessHistory, mode, lastResultWon;
 
 // ---- Speicher für den Fortschritt (welche Paraphen schon "dran" waren) ----
 function loadProgress() {
@@ -627,7 +662,7 @@ function setMode(newMode) {
 }
 
 function updateModePill() {
-  document.getElementById('mode-pill-label').textContent = mode === 'daily' ? 'Täglich' : 'Unendlich';
+  document.getElementById('mode-pill-label').textContent = mode === 'daily' ? '📅 Täglich' : '♾️ Unendlich';
 }
 
 function init() {
@@ -873,6 +908,7 @@ function shakeRow(r) {
 }
 
 function showResult(won, isReplay = false) {
+  lastResultWon = won;
   const overlay = document.getElementById('overlay');
   const label = document.getElementById('result-label');
   const info  = document.getElementById('result-teacher');
@@ -900,8 +936,52 @@ function showResult(won, isReplay = false) {
     playAgainBtn.dataset.dailyDismiss = 'false';
   }
 
+  const switchBtn = document.getElementById('switch-to-endless');
+  switchBtn.style.display = (mode === 'daily' && won) ? 'block' : 'none';
+
   overlay.classList.add('show');
   if (won && !isReplay) startConfetti();
+}
+
+function buildShareText(won) {
+  const dateStr = getBerlinDateString();
+  const modeLabel = mode === 'daily' ? 'Tagesrätsel' : 'Unendlicher Modus';
+  const attempts = won ? (currentRow + 1) : 'X';
+  const emojiMap = { correct: '🟩', present: '🟨', absent: '⬛' };
+
+  let lines = [`GE-Bürendle – ${modeLabel}${mode === 'daily' ? ' (' + dateStr + ')' : ''}`];
+  lines.push(`${attempts}/${MAX_GUESSES} Versuche`);
+  lines.push('');
+
+  guessHistory.forEach(guess => {
+    const result = evaluate(guess, target);
+    lines.push(result.map(state => emojiMap[state]).join(''));
+  });
+
+  return lines.join('\n');
+}
+
+async function shareResult() {
+  const text = buildShareText(lastResultWon);
+  const btn = document.getElementById('share-result');
+  const originalLabel = btn.textContent;
+
+  try {
+    if (navigator.share) {
+      await navigator.share({ text });
+      return;
+    }
+  } catch (e) {
+    // Nutzer hat Share-Dialog abgebrochen oder nicht unterstützt -> Fallback unten
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = '✅ Kopiert!';
+  } catch (e) {
+    btn.textContent = '⚠️ Kopieren fehlgeschlagen';
+  }
+  setTimeout(() => { btn.textContent = originalLabel; }, 1800);
 }
 
 function startConfetti() {
@@ -970,6 +1050,15 @@ document.getElementById('start-endless').addEventListener('click', () => {
 document.getElementById('mode-pill').addEventListener('click', () => {
   document.getElementById('start-overlay').classList.add('show');
 });
+
+document.getElementById('switch-to-endless').addEventListener('click', () => {
+  document.getElementById('overlay').classList.remove('show');
+  const canvas = document.getElementById('confetti-canvas');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  setMode('endless');
+});
+
+document.getElementById('share-result').addEventListener('click', shareResult);
 
 document.addEventListener('keydown', e => {
   const k = e.key.toUpperCase();
