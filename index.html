@@ -643,6 +643,8 @@ function pickDailyTeacher(progress) {
   progress.lastDailyDate = dateStr;
   progress.lastDailyTeacher = chosen.paraphe;
   progress.lastDailyWon = null;
+  progress.lastDailyGuesses = [];
+  progress.lastDailyRow = null;
   saveProgress(progress);
 
   return { teacher: chosen, dateStr, isNewDay: true };
