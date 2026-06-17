@@ -37,7 +37,7 @@
 
   header {
     text-align: center;
-    margin-bottom: 28px;
+    margin-bottom: 0;
   }
 
   h1 {
@@ -53,11 +53,12 @@
   }
 
   .subtitle {
-    font-size: 0.72rem;
+    font-size: clamp(0.62rem, 2.8vw, 0.72rem);
     color: var(--muted);
-    letter-spacing: 0.2em;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
     margin-top: 6px;
+    white-space: nowrap;
   }
 
   /* Kleiner Moduswechsel-Button oben rechts */
@@ -92,6 +93,7 @@
     font-size: 0.68rem;
     color: var(--muted);
     margin-top: 10px;
+    margin-bottom: 8px;
     text-align: center;
     letter-spacing: 0.03em;
     min-height: 16px;
@@ -420,14 +422,14 @@
 
   /* Message */
   #message {
-    height: 28px;
+    height: 20px;
     font-size: 0.78rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--accent);
     text-align: center;
-    margin-bottom: 8px;
-    min-height: 28px;
+    margin-top: 0;
+    margin-bottom: 0;
   }
 
   /* Overlay */
@@ -613,7 +615,7 @@
     <span id="mode-pill-label">📅 Täglich</span>
   </div>
   <h1><span style="color:#C0392B">G</span><span style="color:#2471A3">E</span><span style="color:#F0F0F5">-</span><span style="color:#1A7A4A">B</span><span style="color:#E8B84B">ü</span><span style="color:#C0392B">r</span><span style="color:#2471A3">e</span><span style="color:#1A7A4A">n</span><span style="color:#E8B84B">d</span><span style="color:#C0392B">l</span><span style="color:#2471A3">e</span></h1>
-  <p class="subtitle">Errate die Paraphe · 4 Buchstaben · 6 Versuche</p>
+  <p class="subtitle">Errate die Paraphe · 4&nbsp;Buchstaben · 6&nbsp;Versuche</p>
   <div id="solved-counter"></div>
 </header>
 
