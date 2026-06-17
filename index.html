@@ -572,22 +572,35 @@ const LEHRER = [
 const MAX_GUESSES = 6;
 const WORD_LEN = 4;
 const STORAGE_KEY = 'gebuerendle_progress';
+const STORAGE_VERSION = 2; // Erhöht, weil sich die Berechnung der Tages-Paraphe geändert hat
 
 let target, teacherData, currentRow, currentCol, board, gameOver, keyStates, guessHistory, mode, lastResultWon;
 
 // ---- Speicher für den Fortschritt (welche Paraphen schon "dran" waren) ----
+function defaultProgress() {
+  return { usedDaily: [], lastDailyDate: null, lastDailyWon: null, lastDailyTeacher: null, mode: 'daily', version: STORAGE_VERSION };
+}
+
 function loadProgress() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { usedDaily: [], lastDailyDate: null, lastDailyWon: null, lastDailyTeacher: null, mode: 'daily' };
-    return JSON.parse(raw);
+    if (!raw) return defaultProgress();
+    const parsed = JSON.parse(raw);
+    // Alte, mit einem früheren Algorithmus berechnete Tagesauswahlen verwerfen
+    if (parsed.version !== STORAGE_VERSION) {
+      const fresh = defaultProgress();
+      fresh.mode = parsed.mode || 'daily'; // gewählten Modus behalten
+      return fresh;
+    }
+    return parsed;
   } catch (e) {
-    return { usedDaily: [], lastDailyDate: null, lastDailyWon: null, lastDailyTeacher: null, mode: 'daily' };
+    return defaultProgress();
   }
 }
 
 function saveProgress(progress) {
   try {
+    progress.version = STORAGE_VERSION;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   } catch (e) { /* ignore */ }
 }
