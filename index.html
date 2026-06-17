@@ -88,6 +88,19 @@
     background: var(--accent);
   }
 
+  #solved-counter {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 10px;
+    text-align: center;
+    letter-spacing: 0.03em;
+    min-height: 16px;
+  }
+
+  #solved-counter strong {
+    color: var(--present);
+  }
+
   /* Start-Overlay (Modusauswahl) */
   #start-overlay {
     display: none;
@@ -129,6 +142,101 @@
     line-height: 1.5;
     margin-top: -8px;
   }
+
+  /* How-To-Overlay (Spielerklärung, nur beim ersten Besuch) */
+  #howto-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(4px);
+    z-index: 120;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  #howto-overlay.show { display: flex; }
+
+  #howto-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    max-width: 340px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  }
+
+  #howto-panel h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 0.1em;
+    text-align: center;
+    color: var(--text);
+  }
+
+  #howto-panel p {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .howto-example {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    margin: 4px 0;
+  }
+
+  .howto-tile {
+    width: 38px;
+    height: 38px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    color: #0f0f12;
+  }
+
+  .howto-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .howto-row .howto-example { margin: 0; flex-shrink: 0; }
+
+  .howto-row p {
+    text-align: left;
+    margin: 0;
+    font-size: 0.74rem;
+  }
+
+  #howto-start {
+    background: var(--accent);
+    color: #0f0f12;
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 13px 24px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  #howto-start:hover { opacity: 0.85; }
+  #howto-start:active { transform: scale(0.97); }
 
   .start-btn {
     width: 100%;
@@ -209,34 +317,46 @@
   }
 
   .tile.correct {
-    background: var(--correct);
     border-color: var(--correct);
     color: #0f0f12;
-    animation: flip 0.4s ease forwards;
+    animation: flip-correct 0.5s ease forwards;
   }
 
   .tile.present {
-    background: var(--present);
     border-color: var(--present);
     color: #0f0f12;
-    animation: flip 0.4s ease forwards;
+    animation: flip-present 0.5s ease forwards;
   }
 
   .tile.absent {
-    background: var(--absent);
     border-color: var(--absent);
     color: var(--muted);
-    animation: flip 0.4s ease forwards;
+    animation: flip-absent 0.5s ease forwards;
   }
 
   .tile.shake {
     animation: shake 0.4s ease;
   }
 
-  @keyframes flip {
-    0%   { transform: scaleY(1); }
-    50%  { transform: scaleY(0); }
-    100% { transform: scaleY(1); }
+  @keyframes flip-correct {
+    0%   { transform: scaleY(1); background: var(--surface); }
+    50%  { transform: scaleY(0); background: var(--surface); }
+    50.001% { background: var(--correct); }
+    100% { transform: scaleY(1); background: var(--correct); }
+  }
+
+  @keyframes flip-present {
+    0%   { transform: scaleY(1); background: var(--surface); }
+    50%  { transform: scaleY(0); background: var(--surface); }
+    50.001% { background: var(--present); }
+    100% { transform: scaleY(1); background: var(--present); }
+  }
+
+  @keyframes flip-absent {
+    0%   { transform: scaleY(1); background: var(--surface); }
+    50%  { transform: scaleY(0); background: var(--surface); }
+    50.001% { background: var(--absent); }
+    100% { transform: scaleY(1); background: var(--absent); }
   }
 
   @keyframes shake {
@@ -442,6 +562,36 @@
 </head>
 <body>
 
+<div id="howto-overlay">
+  <div id="howto-panel">
+    <h2>So funktioniert's</h2>
+    <p>Errate die Paraphe einer Kollegin oder eines Kollegen in 6 Versuchen. Jede Paraphe hat 4 Buchstaben.</p>
+
+    <div class="howto-row">
+      <div class="howto-example">
+        <div class="howto-tile" style="background:var(--correct)">S</div>
+      </div>
+      <p>Grün: Buchstabe korrekt und an der richtigen Stelle.</p>
+    </div>
+
+    <div class="howto-row">
+      <div class="howto-example">
+        <div class="howto-tile" style="background:var(--present)">Y</div>
+      </div>
+      <p>Gelb: Buchstabe kommt vor, steht aber an der falschen Stelle.</p>
+    </div>
+
+    <div class="howto-row">
+      <div class="howto-example">
+        <div class="howto-tile" style="background:var(--absent)">X</div>
+      </div>
+      <p>Grau: Buchstabe kommt in der Paraphe nicht vor.</p>
+    </div>
+
+    <button id="howto-start">Los geht's</button>
+  </div>
+</div>
+
 <div id="start-overlay">
   <div id="start-panel">
     <h2>GE-Bürendle</h2>
@@ -464,6 +614,7 @@
   </div>
   <h1><span style="color:#C0392B">G</span><span style="color:#2471A3">E</span><span style="color:#F0F0F5">-</span><span style="color:#1A7A4A">B</span><span style="color:#E8B84B">ü</span><span style="color:#C0392B">r</span><span style="color:#2471A3">e</span><span style="color:#1A7A4A">n</span><span style="color:#E8B84B">d</span><span style="color:#C0392B">l</span><span style="color:#2471A3">e</span></h1>
   <p class="subtitle">Errate die Paraphe · 4 Buchstaben · 6 Versuche</p>
+  <div id="solved-counter"></div>
 </header>
 
 <div id="message"></div>
@@ -704,6 +855,7 @@ function init() {
     const { teacher } = pickDailyTeacher(progress);
     teacherData = teacher;
     target = teacherData.paraphe.toUpperCase();
+    refreshDailySolvedCounter();
 
     // Bereits heute gespielt und beendet?
     const freshProgress = loadProgress();
@@ -722,6 +874,7 @@ function init() {
   } else {
     teacherData = pickRandom();
     target = teacherData.paraphe.toUpperCase();
+    document.getElementById('solved-counter').textContent = '';
   }
 
   currentRow = 0;
@@ -891,7 +1044,7 @@ function submitGuess() {
         setTimeout(() => showResult(false), 400);
       }
     }
-  }, WORD_LEN * 120 + 200);
+  }, WORD_LEN * 120 + 320);
 }
 
 function saveDailyProgress() {
@@ -905,7 +1058,69 @@ function saveDailyResult(won) {
   progress.lastDailyWon = won;
   progress.lastDailyRow = won ? currentRow + 1 : MAX_GUESSES;
   progress.lastDailyGuesses = guessHistory.slice();
+
+  // Nur EINMAL pro Tag und Person den gemeinsamen Zähler erhöhen, egal ob gewonnen oder verloren
+  const dateStr = getBerlinDateString();
+  if (!progress.counterHitDate || progress.counterHitDate !== dateStr) {
+    progress.counterHitDate = dateStr;
+    hitDailySolvedCounter();
+  }
+
   saveProgress(progress);
+}
+
+// ---- Gemeinsamer Zähler "X Personen haben das heutige Rätsel gelöst" ----
+// Nutzt einen kostenlosen, schlüssellosen Counting-Dienst. Schlägt der Aufruf fehl
+// (z.B. Dienst down, kein Internet), bleibt das Spiel trotzdem voll funktionsfähig.
+const COUNTER_BASE = 'https://countapi.mileshilliard.com/api/v1';
+
+function dailyCounterKey(dateStr) {
+  return `gebuerendle_solved_${dateStr}`;
+}
+
+function fetchWithTimeout(url, ms = 4000) {
+  return Promise.race([
+    fetch(url),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+}
+
+function hitDailySolvedCounter() {
+  const dateStr = getBerlinDateString();
+  const key = dailyCounterKey(dateStr);
+  fetchWithTimeout(`${COUNTER_BASE}/hit/${key}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.value !== undefined) updateSolvedCounterDisplay(Number(data.value));
+    })
+    .catch(() => { /* Zähler-Dienst nicht erreichbar - kein Problem für das Spiel */ });
+}
+
+function refreshDailySolvedCounter() {
+  const dateStr = getBerlinDateString();
+  const key = dailyCounterKey(dateStr);
+  fetchWithTimeout(`${COUNTER_BASE}/get/${key}`)
+    .then(res => {
+      if (res.status === 404) return { value: 0 };
+      return res.json();
+    })
+    .then(data => {
+      updateSolvedCounterDisplay(Number(data.value) || 0);
+    })
+    .catch(() => {
+      // Zähler-Dienst nicht erreichbar - Anzeige bleibt einfach leer
+    });
+}
+
+function updateSolvedCounterDisplay(count) {
+  const el = document.getElementById('solved-counter');
+  if (!el) return;
+  if (mode !== 'daily') { el.textContent = ''; return; }
+  if (count === 1) {
+    el.innerHTML = `<strong>1</strong> Person hat das heutige Rätsel bereits gelöst`;
+  } else {
+    el.innerHTML = `<strong>${count}</strong> Personen haben das heutige Rätsel bereits gelöst`;
+  }
 }
 
 function evaluate(guess, target) {
@@ -1120,17 +1335,35 @@ document.addEventListener('keydown', e => {
   else if (/^[A-ZÄÖÜ]$/.test(k)) handleKey(k);
 });
 
-// Beim ersten Besuch: Modusauswahl zeigen. Danach: zuletzt gewählten Modus übernehmen.
+// Beim allerersten Besuch: Spielerklärung, danach Modusauswahl.
+// Danach: zuletzt gewählten Modus direkt übernehmen.
 const startProgress = loadProgress();
-if (startProgress.mode) {
-  mode = startProgress.mode;
-  updateModePill();
-  init();
-} else {
-  mode = 'daily';
-  updateModePill();
-  document.getElementById('start-overlay').classList.add('show');
+
+function startGameFlow() {
+  if (startProgress.hasVisited) {
+    mode = startProgress.mode || 'daily';
+    updateModePill();
+    init();
+  } else {
+    mode = 'daily';
+    updateModePill();
+    document.getElementById('start-overlay').classList.add('show');
+  }
 }
+
+if (!startProgress.hasVisited) {
+  document.getElementById('howto-overlay').classList.add('show');
+} else {
+  startGameFlow();
+}
+
+document.getElementById('howto-start').addEventListener('click', () => {
+  document.getElementById('howto-overlay').classList.remove('show');
+  const p = loadProgress();
+  p.hasVisited = true;
+  saveProgress(p);
+  startGameFlow();
+});
 </script>
 </body>
 </html>
