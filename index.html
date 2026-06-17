@@ -605,17 +605,40 @@ function getBerlinDateString() {
   return `${y}-${m}-${d}`;
 }
 
-// einfacher deterministischer Hash aus einem String (für die Tagesauswahl)
-function hashString(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
+// Wählt die Paraphe des Tages. Die Auswahl ist rein vom Datum abhängig (nicht vom
+// persönlichen Spielfortschritt), damit alle am selben Tag dieselbe Paraphe bekommen.
+// Erst wenn ein voller Zyklus durch alle Lehrer:innen abgeschlossen ist, wiederholt sich jemand.
+const CYCLE_START_DATE = new Date('2026-06-17T00:00:00+02:00'); // Referenzpunkt für Tag 0 des Zyklus
+
+function daysSinceCycleStart(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const current = new Date(Date.UTC(y, m - 1, d));
+  const start = new Date(Date.UTC(
+    CYCLE_START_DATE.getUTCFullYear(), CYCLE_START_DATE.getUTCMonth(), CYCLE_START_DATE.getUTCDate()
+  ));
+  const diffMs = current - start;
+  return Math.floor(diffMs / 86400000);
 }
 
-// Wählt die Paraphe des Tages, ohne Wiederholung bis alle einmal dran waren
+// Eine feste, gemischte Reihenfolge aller Paraphen, damit der Zyklus nicht einfach
+// alphabetisch durchläuft. Basiert auf einem Seed-Hash, ist aber für alle gleich.
+function getShuffledOrder() {
+  const indices = LEHRER.map((_, i) => i);
+  // Deterministisches Mischen (Fisher-Yates mit festem Seed)
+  let seed = 1337;
+  function seededRandom() {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  }
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  return indices;
+}
+
+const SHUFFLED_ORDER = getShuffledOrder();
+
 function pickDailyTeacher(progress) {
   const dateStr = getBerlinDateString();
 
@@ -625,21 +648,13 @@ function pickDailyTeacher(progress) {
     if (found) return { teacher: found, dateStr, isNewDay: false };
   }
 
-  // Neuer Tag: Pool der noch nicht verwendeten Paraphen bestimmen
-  let usedDaily = progress.usedDaily || [];
-  let pool = LEHRER.filter(l => !usedDaily.includes(l.paraphe));
-  if (pool.length === 0) {
-    // Alle waren schon dran -> Zyklus neu starten
-    usedDaily = [];
-    pool = LEHRER.slice();
-  }
+  // Tagesindex im festen, für alle identischen Zyklus
+  const dayOffset = daysSinceCycleStart(dateStr);
+  const cycleLength = LEHRER.length;
+  const positionInCycle = ((dayOffset % cycleLength) + cycleLength) % cycleLength; // immer positiv
+  const teacherIndex = SHUFFLED_ORDER[positionInCycle];
+  const chosen = LEHRER[teacherIndex];
 
-  // Deterministische, aber für den Tag "zufällige" Auswahl aus dem Pool
-  const idx = hashString(dateStr) % pool.length;
-  const chosen = pool[idx];
-
-  usedDaily.push(chosen.paraphe);
-  progress.usedDaily = usedDaily;
   progress.lastDailyDate = dateStr;
   progress.lastDailyTeacher = chosen.paraphe;
   progress.lastDailyWon = null;
